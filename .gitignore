@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.venv/
+venv/
+env/
+
+# Local/editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Generated exports and temp artifacts
+dist/
+build/
+*.spec
+*.log
+
+# OS files
+Thumbs.db
+Desktop.ini
