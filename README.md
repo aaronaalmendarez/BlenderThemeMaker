@@ -24,6 +24,8 @@ You can mix both workflows too: generate a starting palette, then tweak it by ha
 - Shows a live preview before you apply anything.
 - Saves theme history locally.
 - Lets you rename, edit, delete, and export saved themes.
+- Imports the theme currently saved in Blender into the app.
+- Exports the current Blender theme as a full Blender XML preset backup.
 - Applies the theme directly to Blender through `blender.exe`.
 
 ## Quick Start
@@ -73,6 +75,16 @@ If your Blender is somewhere else, use `Find Blender` inside the app.
 6. Click `Apply Theme`.
 
 This is the simplest way to use the app if you already have a palette in mind.
+
+## Existing Blender Themes
+
+Already have a Blender theme you like? You can pull it into the app.
+
+- `Import Current Theme` reads the theme Blender is currently using, converts the main colors into the app palette, loads it for editing, and saves it in Theme History.
+- `Export Full XML` uses Blender's own theme preset exporter. Use this when you want a full backup that captures the complete Blender theme, not just the simplified app palette.
+- `Replace Blender Theme` applies the palette currently shown in the app and overwrites Blender's active saved theme preferences.
+
+Use `Export Full XML` before replacing a theme if you want a complete backup.
 
 ## No API Key AI Workflow
 

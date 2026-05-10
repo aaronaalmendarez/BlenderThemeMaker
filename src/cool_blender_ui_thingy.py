@@ -278,6 +278,62 @@ print("Applied cool blender ui thingy palette.")
 '''
 
 
+EXTRACT_BLENDER_PALETTE_SCRIPT = r'''
+import json
+import bpy
+
+def to_hex(value):
+    rgb = [max(0, min(255, round(channel * 255))) for channel in value[:3]]
+    return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+theme = bpy.context.preferences.themes[0]
+ui = theme.user_interface
+view = theme.view_3d
+gradients = view.space.gradients
+background_type = gradients.background_type
+
+palette = {
+    "background": to_hex(view.space.back if hasattr(view.space, "back") else gradients.gradient),
+    "panel": to_hex(ui.panel_back),
+    "panel_header": to_hex(ui.panel_header),
+    "accent": to_hex(ui.editor_outline_active),
+    "accent_secondary": to_hex(ui.wcol_regular.item),
+    "outline": to_hex(ui.panel_outline),
+    "text": to_hex(ui.panel_title),
+    "muted_text": to_hex(ui.panel_text),
+    "grid": to_hex(view.grid),
+    "gradient_start": to_hex(gradients.gradient),
+    "gradient_end": to_hex(gradients.high_gradient),
+    "gradient_enabled": background_type != "SINGLE_COLOR",
+    "gradient_type": background_type,
+}
+
+payload = {
+    "name": theme.name or "Blender Theme",
+    "palette": palette,
+}
+print("BLENDER_THEME_MAKER_JSON_START")
+print(json.dumps(payload))
+print("BLENDER_THEME_MAKER_JSON_END")
+'''
+
+
+EXPORT_BLENDER_THEME_XML_SCRIPT = r'''
+import os
+import shutil
+import bpy
+
+name = "__PRESET_NAME__"
+output_path = r"__OUTPUT_PATH__"
+scripts_root = os.environ["BLENDER_USER_SCRIPTS"]
+
+bpy.ops.wm.interface_theme_preset_add(name=name)
+source = os.path.join(scripts_root, "presets", "interface_theme", name + ".xml")
+shutil.copyfile(source, output_path)
+print("Exported full Blender theme XML:", output_path)
+'''
+
+
 def image_to_base64(path):
     with open(path, "rb") as handle:
         return base64.b64encode(handle.read()).decode("ascii")
@@ -585,13 +641,17 @@ class ThemeApp(tk.Tk):
         )
         self.json_text.pack(fill="both", expand=True)
 
-        apply_box = self._section(right, "Apply To Blender", fill=False)
+        apply_box = self._section(right, "Blender Theme", fill=False)
         apply_box.grid(row=2, column=0, sticky="ew")
         ttk.Entry(apply_box, textvariable=self.blender_exe).pack(fill="x", pady=(0, 8))
         row = ttk.Frame(apply_box)
         row.pack(fill="x")
         self._button(row, "Find Blender", self.pick_blender).pack(side="left")
-        self._button(row, "Apply Theme", self.apply_to_blender, style="Accent.TButton").pack(side="right")
+        self._button(row, "Replace Blender Theme", self.apply_to_blender, style="Accent.TButton").pack(side="right")
+        row = ttk.Frame(apply_box)
+        row.pack(fill="x", pady=(8, 0))
+        self._button(row, "Import Current Theme", self.import_current_blender_theme).pack(side="left", fill="x", expand=True, padx=(0, 6))
+        self._button(row, "Export Full XML", self.export_current_blender_theme_xml).pack(side="left", fill="x", expand=True)
 
         history_outer, self.history_content = self._scrollable_section(right, "Theme History")
         history_outer.grid(row=3, column=0, sticky="ew", pady=(12, 0))
@@ -1068,6 +1128,25 @@ class ThemeApp(tk.Tk):
         self.render_theme_history()
         self.status.set("Theme deleted")
 
+    def save_imported_blender_theme(self, name, palette):
+        entry = {
+            "id": str(uuid.uuid4()),
+            "name": name,
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "palette": dict(palette),
+        }
+        self.theme_history.insert(0, entry)
+        save_theme_history(self.theme_history)
+        self.render_theme_history()
+
+    def parse_blender_json_payload(self, output):
+        start = "BLENDER_THEME_MAKER_JSON_START"
+        end = "BLENDER_THEME_MAKER_JSON_END"
+        if start not in output or end not in output:
+            raise RuntimeError("Blender did not return theme data.")
+        json_text = output.split(start, 1)[1].split(end, 1)[0].strip()
+        return json.loads(json_text)
+
     def import_image(self):
         paths = filedialog.askopenfilenames(filetypes=[("Images", "*.png *.jpg *.jpeg *.webp *.bmp"), ("All files", "*.*")])
         if paths:
@@ -1162,6 +1241,69 @@ class ThemeApp(tk.Tk):
         if path:
             self.blender_exe.set(path)
             self._log(f"Blender: {path}")
+
+    def import_current_blender_theme(self):
+        blender = self.blender_exe.get()
+        if not os.path.exists(blender):
+            messagebox.showerror("Blender", "Blender executable path is invalid.")
+            return
+
+        def worker():
+            with tempfile.TemporaryDirectory() as folder:
+                script_path = os.path.join(folder, "extract_theme.py")
+                with open(script_path, "w", encoding="utf-8") as handle:
+                    handle.write(EXTRACT_BLENDER_PALETTE_SCRIPT)
+                result = subprocess.run([blender, "--background", "--python", script_path], capture_output=True, text=True)
+            if result.returncode:
+                raise RuntimeError(result.stderr or result.stdout or "Blender returned an error.")
+            return self.parse_blender_json_payload(result.stdout + result.stderr)
+
+        def done(payload):
+            name = f"Imported {payload.get('name') or 'Blender Theme'}"
+            palette = payload["palette"]
+            self._set_palette(palette)
+            self.save_imported_blender_theme(name, self.current_palette_snapshot())
+            self.status.set("Blender theme imported")
+            self._log(f"Imported current Blender theme into app history: {name}")
+
+        self._run_task("Importing current Blender theme...", worker, done)
+
+    def export_current_blender_theme_xml(self):
+        blender = self.blender_exe.get()
+        if not os.path.exists(blender):
+            messagebox.showerror("Blender", "Blender executable path is invalid.")
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".xml",
+            initialfile="current-blender-theme.xml",
+            filetypes=[("Blender theme XML", "*.xml"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+
+        def worker():
+            preset_name = "BlenderThemeMakerFullExport"
+            with tempfile.TemporaryDirectory() as folder:
+                script = EXPORT_BLENDER_THEME_XML_SCRIPT
+                script = script.replace("__PRESET_NAME__", preset_name)
+                script = script.replace("__OUTPUT_PATH__", path.replace("\\", "\\\\"))
+                script_path = os.path.join(folder, "export_theme_xml.py")
+                scripts_root = os.path.join(folder, "blender_scripts")
+                os.makedirs(scripts_root, exist_ok=True)
+                with open(script_path, "w", encoding="utf-8") as handle:
+                    handle.write(script)
+                env = os.environ.copy()
+                env["BLENDER_USER_SCRIPTS"] = scripts_root
+                result = subprocess.run([blender, "--background", "--python", script_path], capture_output=True, text=True, env=env)
+            if result.returncode:
+                raise RuntimeError(result.stderr or result.stdout or "Blender returned an error.")
+            return path
+
+        def done(export_path):
+            self.status.set("Full Blender theme exported")
+            self._log(f"Exported full Blender theme XML: {export_path}")
+
+        self._run_task("Exporting full Blender theme XML...", worker, done)
 
     def apply_to_blender(self):
         blender = self.blender_exe.get()
