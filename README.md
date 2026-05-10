@@ -2,21 +2,27 @@
 
 Make Blender look less default.
 
-This app lets you import reference images, hand ChatGPT or another AI a prompt to make Blender themes for you, paste the JSON back in, tweak the colors, save themes you like, and apply them straight to Blender.
+BlenderThemeMaker is a small Windows app for making Blender UI themes. You can build a theme manually with the color controls, use screenshots as references, or ask ChatGPT/another AI to generate a palette JSON for you. The app lets you preview the colors, save themes, and apply them straight to Blender.
 
 ![BlenderThemeMaker app screenshot](screenshotapp.png)
 
+## Why Use It
+
+Use it manually if you already know the colors you want. Use the AI prompt workflow if you want to turn a screenshot, Discord theme, game UI, website, or moodboard into a Blender theme faster.
+
+You can mix both workflows too: generate a starting palette, then tweak it by hand until it feels right.
+
 ## What It Does
 
+- Lets you make themes manually with color controls.
 - Imports one or more reference images.
 - Pastes screenshots or image files from your clipboard.
-- Lets you remove reference images one at a time.
+- Removes reference images one at a time.
 - Copies a ready-to-use prompt for ChatGPT or any other AI.
 - Pastes AI JSON back into the app, even if it comes wrapped in a `json` code block.
-- Gives you manual controls for every core color.
 - Supports gradients.
 - Shows a live preview before you apply anything.
-- Saves theme history locally so you can come back to old palettes.
+- Saves theme history locally.
 - Lets you rename, edit, delete, and export saved themes.
 - Applies the theme directly to Blender through `blender.exe`.
 
@@ -28,16 +34,16 @@ For the easiest setup, double-click:
 install_and_launch.bat
 ```
 
-That script checks for Python, installs the required package, and launches the app.
+That checks for Python, installs the required package, and launches the app.
 
-If you prefer doing it manually:
+Manual setup:
 
 ```powershell
 pip install -r requirements.txt
 python .\src\cool_blender_ui_thingy.py
 ```
 
-You can also use:
+Or launch it after setup with:
 
 ```powershell
 .\launch.bat
@@ -57,9 +63,20 @@ C:\Program Files\Blender Foundation\Blender 5.1\blender.exe
 
 If your Blender is somewhere else, use `Find Blender` inside the app.
 
-## No API Key Needed
+## Manual Workflow
 
-You do not need an API key to use this.
+1. Open the app.
+2. Edit the colors in `Manual Palette`.
+3. Choose whether you want a gradient.
+4. Watch the preview update.
+5. Click `Save Current Theme` if you want to keep it.
+6. Click `Apply Theme`.
+
+This is the simplest way to use the app if you already have a palette in mind.
+
+## No API Key AI Workflow
+
+You do not need an API key to use AI with this.
 
 1. Add screenshots or reference images in the app.
 2. Click `Copy Prompt`.
